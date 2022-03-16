@@ -7,6 +7,9 @@ import shutil
 import subprocess as sp
 import sys
 from typing import List
+from typing import Union
+from xmlrpc.client import Boolean
+
 import yaml
 
 
@@ -19,9 +22,9 @@ class Command:
         self.command = command
         # Will be [] if not run using pre-commit or if there are no committed files
         self.files = self.get_added_files()
-        self.cppcheck_paths = None
-        self.cppcheck_excludes = None
-        self.cppcheck_includedirs = None
+        self.cppcheck_paths: Union[List[str], None] = None
+        self.cppcheck_excludes: Union[List[str], None] = None
+        self.cppcheck_includedirs: Union[List[str], None] = None
         self.edit_in_place = False
 
         self.stdout = b""
@@ -43,8 +46,7 @@ class Command:
         """Find added files using git."""
         added_files = sys.argv[1:]  # 1: don't include the hook file
         # cfg files are used by uncrustify and won't be source files
-        added_files = [f for f in added_files if os.path.exists(
-            f) and not f.endswith(".cfg")]
+        added_files = [f for f in added_files if os.path.exists(f) and not f.endswith(".cfg")]
 
         # Taken from https://github.com/pre-commit/pre-commit-hooks/blob/master/pre_commit_hooks/util.py
         # If no files are provided and if this is used as a command,
@@ -60,13 +62,30 @@ class Command:
         return added_files
 
     def read_cppcheck_config(self, filename: str):
-        with open(filename, 'r') as instream:
+        with open(filename, "r") as instream:
             config_data = yaml.safe_load(instream)
-            self.cppcheck_paths = config_data["paths"]
-            self.cppcheck_excludes = config_data["exclude"]
-            self.cppcheck_includedirs = config_data["includedir"]
+            for key in ["paths", "exclude", "includedir"]:
+                try:
+                    self.cppcheck_paths = config_data[key]
+                except KeyError:
+                    ...
 
     def apply_cppcheck_config(self):
+        # def filter_files(list: Union[List[str], None], is_blacklist: Boolean):
+        #     if list is None:
+        #         return
+        #     files = self.files
+        #     for file in files:
+        #         found = False
+        #         for path in list:
+        #             if file.startswith(path):
+        #                 found = True
+        #                 break
+        #         if found == is_blacklist:
+        #             self.files.remove(file)
+
+        # filter_files(self.cppcheck_paths, False)
+        # filter_files(self.cppcheck_excludes, True)
         if self.cppcheck_paths is not None:
             files = self.files
             for file in files:
@@ -105,8 +124,7 @@ class Command:
                     expected_version = args[args.index(arg) + 1]
                 # Expected split of --version=8.0.0 or --version 8.0.0 with as many spaces as needed
                 else:
-                    expected_version = arg.replace(" ", "").replace(
-                        "=", "").replace("--version", "")
+                    expected_version = arg.replace(" ", "").replace("=", "").replace("--version", "")
                 actual_version = self.get_version_str()
                 self.assert_version(actual_version, expected_version)
             if arg.startswith("--config-file="):
@@ -117,8 +135,7 @@ class Command:
         is_cmd_clang_analyzer = self.command == "clang-tidy" or self.command == "oclint"
         has_args = self.files or self.args or "version" in self.args
         if not has_args and not is_cmd_clang_analyzer:
-            self.raise_error(
-                "Missing arguments", "No file arguments found and no files are pending commit.")
+            self.raise_error("Missing arguments", "No file arguments found and no files are pending commit.")
 
     def add_if_missing(self, new_args: List[str]):
         """Add a default if it's missing from the command. This library
@@ -217,8 +234,7 @@ class FormatterCmd(Command):
             # no stdout. So compare the before/after file for hook pass/fail
             expected = self.get_filelines(filename_str)
         diff = list(
-            difflib.diff_bytes(difflib.unified_diff, actual,
-                               expected, fromfile=b"original", tofile=b"formatted")
+            difflib.diff_bytes(difflib.unified_diff, actual, expected, fromfile=b"original", tofile=b"formatted")
         )
         if len(diff) > 0:
             if not self.no_diff_flag:
@@ -239,8 +255,7 @@ class FormatterCmd(Command):
         child = sp.run(args, stdout=sp.PIPE, stderr=sp.PIPE)
         if len(child.stderr) > 0 or child.returncode != 0:
             problem = f"Unexpected Stderr/return code received when analyzing {filename}.\nArgs: {args}"
-            self.raise_error(problem, child.stdout.decode() +
-                             child.stderr.decode())
+            self.raise_error(problem, child.stdout.decode() + child.stderr.decode())
         if child.stdout == b"":
             return []
         return child.stdout.split(b"\x0a")
@@ -248,8 +263,7 @@ class FormatterCmd(Command):
     def get_filelines(self, filename: str):
         """Get the lines in a file."""
         if not os.path.exists(filename):
-            self.raise_error(f"File {filename} not found",
-                             "Check your path to the file.")
+            self.raise_error(f"File {filename} not found", "Check your path to the file.")
         with open(filename, "rb") as f:
             filetext = f.read()
         return filetext.split(b"\x0a")
