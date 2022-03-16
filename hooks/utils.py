@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess as sp
 import sys
+from typing import Dict
 from typing import List
 from typing import Union
 from xmlrpc.client import Boolean
@@ -22,9 +23,7 @@ class Command:
         self.command = command
         # Will be [] if not run using pre-commit or if there are no committed files
         self.files = self.get_added_files()
-        self.cppcheck_paths: Union[List[str], None] = None
-        self.cppcheck_excludes: Union[List[str], None] = None
-        self.cppcheck_includedirs: Union[List[str], None] = None
+        self.cppcheck_config: Union[Dict[str, Union[List[str], None]], None] = None
         self.edit_in_place = False
 
         self.stdout = b""
@@ -63,50 +62,49 @@ class Command:
 
     def read_cppcheck_config(self, filename: str):
         with open(filename, "r") as instream:
-            config_data = yaml.safe_load(instream)
-            for key in ["paths", "exclude", "includedir"]:
-                try:
-                    self.cppcheck_paths = config_data[key]
-                except KeyError:
-                    ...
+            self.cppcheck_config = yaml.safe_load(instream)
+        for key in ["paths", "exclude", "includedir"]:
+            if self.cppcheck_config.has_key(key) == False:
+                self.cppcheck_config[key] = None
 
     def apply_cppcheck_config(self):
-        # def filter_files(list: Union[List[str], None], is_blacklist: Boolean):
-        #     if list is None:
-        #         return
-        #     files = self.files
-        #     for file in files:
-        #         found = False
-        #         for path in list:
-        #             if file.startswith(path):
-        #                 found = True
-        #                 break
-        #         if found == is_blacklist:
-        #             self.files.remove(file)
-
-        # filter_files(self.cppcheck_paths, False)
-        # filter_files(self.cppcheck_excludes, True)
-        if self.cppcheck_paths is not None:
+        def filter_files(list: Union[List[str], None], is_blacklist: Boolean):
+            if list is None:
+                return
             files = self.files
             for file in files:
                 found = False
-                for path in self.cppcheck_paths:
+                for path in list:
                     if file.startswith(path):
                         found = True
                         break
-                if found == False:
+                if found == is_blacklist:
                     self.files.remove(file)
 
-        if self.cppcheck_excludes is not None:
-            files = self.files
-            for file in files:
-                found = False
-                for exclude in self.cppcheck_excludes:
-                    if file.startswith(exclude):
-                        found = True
-                        break
-                if found == True:
-                    self.files.remove(file)
+        filter_files(self.cppcheck_config["paths"], False)
+        filter_files(self.cppcheck_config["exclude"], True)
+
+        # if self.cppcheck_paths is not None:
+        #     files = self.files
+        #     for file in files:
+        #         found = False
+        #         for path in self.cppcheck_paths:
+        #             if file.startswith(path):
+        #                 found = True
+        #                 break
+        #         if found == False:
+        #             self.files.remove(file)
+
+        # if self.cppcheck_excludes is not None:
+        #     files = self.files
+        #     for file in files:
+        #         found = False
+        #         for exclude in self.cppcheck_excludes:
+        #             if file.startswith(exclude):
+        #                 found = True
+        #                 break
+        #         if found == True:
+        #             self.files.remove(file)
 
         if self.cppcheck_includedirs is not None:
             for includedir in self.cppcheck_includedirs:
