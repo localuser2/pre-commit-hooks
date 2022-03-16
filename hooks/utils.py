@@ -6,7 +6,7 @@ import re
 import shutil
 import subprocess as sp
 import sys
-from typing import List
+from typing import List, Union
 import yaml
 
 
@@ -19,9 +19,9 @@ class Command:
         self.command = command
         # Will be [] if not run using pre-commit or if there are no committed files
         self.files = self.get_added_files()
-        self.cppcheck_paths = None
-        self.cppcheck_excludes = None
-        self.cppcheck_includedirs = None
+        self.cppcheck_paths: Union[List[str], None] = None
+        self.cppcheck_excludes: Union[List[str], None] = None
+        self.cppcheck_includedirs: Union[List[str], None] = None
         self.edit_in_place = False
 
         self.stdout = b""
@@ -62,9 +62,11 @@ class Command:
     def read_cppcheck_config(self, filename: str):
         with open(filename, 'r') as instream:
             config_data = yaml.safe_load(instream)
-            self.cppcheck_paths = config_data["paths"]
-            self.cppcheck_excludes = config_data["exclude"]
-            self.cppcheck_includedirs = config_data["includedir"]
+            for key in ["paths", "exclude", "includedir"]:
+                try:
+                    self.cppcheck_paths = config_data[key]
+                except KeyError:
+                    ...
 
     def apply_cppcheck_config(self):
         if self.cppcheck_paths is not None:
