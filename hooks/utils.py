@@ -6,12 +6,16 @@ import re
 import shutil
 import subprocess as sp
 import sys
+from pathlib import Path
+from pathlib import PosixPath
 from typing import Dict
 from typing import List
 from typing import Union
 from xmlrpc.client import Boolean
 
 import yaml
+
+from hooks import cppcheck
 
 
 class Command:
@@ -23,7 +27,6 @@ class Command:
         self.command = command
         # Will be [] if not run using pre-commit or if there are no committed files
         self.files = self.get_added_files()
-        self.cppcheck_config: Union[Dict[str, Union[List[str], None]], None] = None
         self.edit_in_place = False
 
         self.stdout = b""
@@ -60,59 +63,52 @@ class Command:
             added_files = sp_child.stdout.decode().splitlines()
         return added_files
 
-    def read_cppcheck_config(self, filename: str):
-        with open(filename, "r") as instream:
-            self.cppcheck_config = yaml.safe_load(instream)
-        for key in ["paths", "exclude", "includedir"]:
-            if self.cppcheck_config.has_key(key) == False:
-                self.cppcheck_config[key] = None
+    def init_cppcheck_config(self, filename: Union[str, None]):
+        if filename is None:
+            self.cppcheck_config: Dict[str, List[str]] = {}
+        else:
+            with open(filename, "r") as instream:
+                self.cppcheck_config = yaml.safe_load(instream)
+        for key in ["paths", "excludes", "includedirs", "suppressions", "args"]:
+            if not key in self.cppcheck_config or self.cppcheck_config[key] is None:
+                self.cppcheck_config[key] = []
+
+    def _filter_files(self, paths: List[str], is_blacklist: Boolean):
+        if not paths:
+            return
+        files = self.files
+        for file in files:
+            posix_file = str(PosixPath(Path(file)))
+            found = False
+            for posix_path in paths:
+                if posix_file.startswith(posix_path):
+                    found = True
+                    break
+            if found == is_blacklist:
+                self.files.remove(file)
 
     def apply_cppcheck_config(self):
-        def filter_files(list: Union[List[str], None], is_blacklist: Boolean):
-            if list is None:
-                return
-            files = self.files
-            for file in files:
-                found = False
-                for path in list:
-                    if file.startswith(path):
-                        found = True
-                        break
-                if found == is_blacklist:
-                    self.files.remove(file)
+        self._filter_files(self.cppcheck_config["paths"], False)
+        self._filter_files(self.cppcheck_config["excludes"], True)
 
-        filter_files(self.cppcheck_config["paths"], False)
-        filter_files(self.cppcheck_config["exclude"], True)
+        for posix_excludepath in self.cppcheck_config["excludes"]:
+            excludepath = Path(PosixPath(posix_excludepath))
+            self.args.append(f"-i{excludepath}")
 
-        # if self.cppcheck_paths is not None:
-        #     files = self.files
-        #     for file in files:
-        #         found = False
-        #         for path in self.cppcheck_paths:
-        #             if file.startswith(path):
-        #                 found = True
-        #                 break
-        #         if found == False:
-        #             self.files.remove(file)
+        for posix_includedir in self.cppcheck_config["includedirs"]:
+            includedir = Path(PosixPath(posix_includedir))
+            self.args.append(f"-I{includedir}")
 
-        # if self.cppcheck_excludes is not None:
-        #     files = self.files
-        #     for file in files:
-        #         found = False
-        #         for exclude in self.cppcheck_excludes:
-        #             if file.startswith(exclude):
-        #                 found = True
-        #                 break
-        #         if found == True:
-        #             self.files.remove(file)
+        for suppression in self.cppcheck_config["suppressions"]:
+            self.args.append(f"--suppress={suppression}")
 
-        if self.cppcheck_includedirs is not None:
-            for includedir in self.cppcheck_includedirs:
-                self.args.append(f"-i {includedir}")
+        for arg in self.cppcheck_config["args"]:
+            self.args.append(arg)
 
     def parse_args(self, args: List[str]):
         """Parse the args into usable variables"""
         self.args = list(args[1:])  # don't include calling function
+        config_filepath: Union[str, None] = None
         for arg in args:
             if arg in self.files and not arg.startswith("-"):
                 self.args.remove(arg)
@@ -126,8 +122,9 @@ class Command:
                 actual_version = self.get_version_str()
                 self.assert_version(actual_version, expected_version)
             if arg.startswith("--config-file="):
-                self.read_cppcheck_config(arg.replace("--config-file=", ""))
+                config_filepath = arg.split("=")[1]
                 self.args.remove(arg)
+            self.init_cppcheck_config(config_filepath)
 
         # All commands other than clang-tidy or oclint require files, --version ok
         is_cmd_clang_analyzer = self.command == "clang-tidy" or self.command == "oclint"

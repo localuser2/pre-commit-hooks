@@ -15,7 +15,6 @@ class CppcheckCmd(StaticAnalyzerCmd):
     def __init__(self, args: List[str]):
         super().__init__(self.command, self.lookbehind, args)
         self.parse_args(args)
-        self.apply_cppcheck_config()
         # quiet for stdout purposes
         self.add_if_missing(["-q"])
         # make cppcheck behave as expected for pre-commit
@@ -26,6 +25,7 @@ class CppcheckCmd(StaticAnalyzerCmd):
         self.add_if_missing(
             ["--suppress=unmatchedSuppression", "--suppress=missingIncludeSystem", "--suppress=unusedFunction"]
         )
+        self.apply_cppcheck_config()
 
     def run(self):
         """Run cppcheck"""
