@@ -36,11 +36,10 @@ class CppcheckCmd(StaticAnalyzerCmd):
         # self.exit_on_error()
 
         for filename in self.files:
-            if filename.endswith(".h"):
+            if not filename.endswith("cmac.c"):
                 continue
-            print("Running command: " + " ".join([filename] + self.args))
             self.run_command([filename] + self.args)
-            self.exit_on_error()
+        self.exit_on_error()
 
 
 def main(argv: List[str] = sys.argv):
