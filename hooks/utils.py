@@ -76,8 +76,8 @@ class Command:
     def _filter_files(self, paths: List[str], is_blacklist: Boolean):
         if not paths:
             return
-        files = self.files
-        for file in files:
+        remove_files = []
+        for file in self.files:
             posix_file = str(PosixPath(Path(file)))
             found = False
             for posix_path in paths:
@@ -85,7 +85,9 @@ class Command:
                     found = True
                     break
             if found == is_blacklist:
-                self.files.remove(file)
+                remove_files.append(file)
+        for file in remove_files:
+            self.files.remove(file)
 
     def apply_cppcheck_config(self):
         self._filter_files(self.cppcheck_config["paths"], False)
@@ -191,6 +193,7 @@ class StaticAnalyzerCmd(Command):
 
     def __init__(self, command: str, look_behind: str, args: List[str]):
         super().__init__(command, look_behind, args)
+        self.returncode = 0
 
     def run_command(self, args: List[str]):
         """Run the command and check for errors. Args includes options and filepaths"""
@@ -198,11 +201,13 @@ class StaticAnalyzerCmd(Command):
         sp_child = sp.run(args, stdout=sp.PIPE, stderr=sp.PIPE)
         self.stdout += sp_child.stdout
         self.stderr += sp_child.stderr
-        self.returncode = sp_child.returncode
+        if self.returncode == 0:
+            self.returncode = sp_child.returncode
 
     def exit_on_error(self):
         if self.returncode != 0:
             sys.stderr.buffer.write(self.stdout + self.stderr)
+            print(f"Exiting with code {self.returncode}")
             sys.exit(self.returncode)
 
 

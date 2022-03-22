@@ -20,7 +20,7 @@ class CppcheckCmd(StaticAnalyzerCmd):
         # make cppcheck behave as expected for pre-commit
         self.add_if_missing(["--error-exitcode=1"])
         # Enable all of the checks
-        self.add_if_missing(["--enable=all"])
+        # self.add_if_missing(["--enable=all"])
         # Per https://github.com/pocc/pre-commit-hooks/pull/30, suppress missingIncludeSystem messages
         self.add_if_missing(
             ["--suppress=unmatchedSuppression", "--suppress=missingIncludeSystem", "--suppress=unusedFunction"]
@@ -36,8 +36,7 @@ class CppcheckCmd(StaticAnalyzerCmd):
         # self.exit_on_error()
 
         for filename in self.files:
-            if not filename.endswith("cmac.c"):
-                continue
+            print("Running command with args: " + " ".join(self.args + [filename]))
             self.run_command([filename] + self.args)
         self.exit_on_error()
 
