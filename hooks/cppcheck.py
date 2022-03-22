@@ -36,6 +36,8 @@ class CppcheckCmd(StaticAnalyzerCmd):
         # self.exit_on_error()
 
         for filename in self.files:
+            if filename.endswith(".h"):
+                continue
             print("Running command: " + " ".join([filename] + self.args))
             self.run_command([filename] + self.args)
             self.exit_on_error()
