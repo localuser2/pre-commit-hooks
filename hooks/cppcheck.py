@@ -29,10 +29,17 @@ class CppcheckCmd(StaticAnalyzerCmd):
 
     def run(self):
         """Run cppcheck"""
-        for filename in self.files:
-            print("Running command: " + " ".join([filename] + self.args))
-            self.run_command([filename] + self.args)
-            self.exit_on_error()
+        if len(self.files) > 1:
+            self.files = ["firmware/src"]
+        print("Running command with args: " + " ".join(self.args + self.files))
+        self.run_command(self.args + self.files)
+        self.exit_on_error()
+
+
+#        for filename in self.files:
+#            print("Running command: " + " ".join([filename] + self.args))
+#            self.run_command([filename] + self.args)
+#            self.exit_on_error()
 
 
 def main(argv: List[str] = sys.argv):
