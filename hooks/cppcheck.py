@@ -36,7 +36,6 @@ class CppcheckCmd(StaticAnalyzerCmd):
         # self.exit_on_error()
 
         for filename in self.files:
-            print("Running command with args: " + " ".join(self.args + [filename]))
             self.run_command([filename] + self.args)
         self.exit_on_error()
 
