@@ -31,7 +31,7 @@ class CppcheckCmd(StaticAnalyzerCmd):
         """Run cppcheck"""
         # if len(self.files) > 1:
         #     self.files = ["firmware/src"]
-        # print("Running command with args: " + " ".join(self.args + self.files))
+        print("Running command with args: " + " ".join(self.args + self.files))
         # self.run_command(self.args + self.files)
         # self.exit_on_error()
 
