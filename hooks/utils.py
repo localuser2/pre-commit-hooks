@@ -64,6 +64,7 @@ class Command:
         return added_files
 
     def init_cppcheck_config(self, filename: Union[str, None]):
+        print(f"current dir: {os.getcwd()}, filename: {filename}")
         if filename is None:
             self.cppcheck_config: Dict[str, List[str]] = {}
         else:
