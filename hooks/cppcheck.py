@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Wrapper script for cppcheck."""
+import os
 import sys
 from typing import List
 
@@ -34,6 +35,7 @@ class CppcheckCmd(StaticAnalyzerCmd):
         # print("Running command with args: " + " ".join(self.args + self.files))
         # self.run_command(self.args + self.files)
         # self.exit_on_error()
+        print(f"Running in directory: {os.getcwd()}")
 
         for filename in self.files:
             self.run_command([filename] + self.args)
